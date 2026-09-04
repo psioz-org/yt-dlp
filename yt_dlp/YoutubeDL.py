@@ -651,6 +651,7 @@ class YoutubeDL:
         self._download_retcode = 0
         self._num_downloads = 0
         self._num_videos = 0
+        self._last_extraction_error_info = None
         self._playlist_level = 0
         self._playlist_urls = set()
         self.cache = Cache(self)
@@ -1193,7 +1194,7 @@ class YoutubeDL:
         msg = msg or (has_drm and 'This video is DRM protected') or 'No video formats found!'
         if forced or not ignored:
             raise ExtractorError(msg, video_id=info['id'], ie=info['extractor'],
-                                 expected=has_drm or ignored or expected)
+                                 expected=has_drm or ignored or expected, info_dict=info)
         else:
             self.report_warning(msg)
 
@@ -1738,6 +1739,7 @@ class YoutubeDL:
                         self.report_warning(f'{e}; Re-extracting data')
                     continue
                 except GeoRestrictedError as e:
+                    self._last_extraction_error_info = getattr(e, 'info_dict', None)
                     msg = e.msg
                     if e.countries:
                         msg += '\nThis video is available in {}.'.format(', '.join(
@@ -1745,6 +1747,7 @@ class YoutubeDL:
                     msg += '\nYou might want to use a VPN or a proxy server (with --proxy) to workaround.'
                     self.report_error(msg)
                 except ExtractorError as e:  # An error we somewhat expected
+                    self._last_extraction_error_info = getattr(e, 'info_dict', None)
                     self.report_error(str(e), e.format_traceback())
                 except Exception as e:
                     if self.params.get('ignoreerrors'):
@@ -3681,6 +3684,8 @@ class YoutubeDL:
     def __download_wrapper(self, func):
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
+            res = None
+            self._last_extraction_error_info = None  # Reset before each extraction
             try:
                 res = func(*args, **kwargs)
             except CookieLoadError:
@@ -3692,10 +3697,12 @@ class YoutubeDL:
                 if not self.params.get('break_per_url'):
                     raise
                 self._num_downloads = 0
-            else:
+            finally:
                 if self.params.get('dump_single_json', False):
-                    self.post_extract(res)
-                    self.to_stdout(json.dumps(self.sanitize_info(res)))
+                    final_info = res if res is not None else getattr(self, '_last_extraction_error_info', None)
+                    if final_info is not None:
+                        self.post_extract(final_info)
+                        self.to_stdout(json.dumps(self.sanitize_info(final_info)))
         return wrapper
 
     def download(self, url_list):

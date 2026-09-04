@@ -4045,12 +4045,23 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
             self.write_debug(f'{video_id}: Video is in Post-Live Manifestless mode')
 
         if not formats:
+            partial_info = {
+                'id': video_id,
+                'title': video_title,
+                'webpage_url': webpage_url,
+                'extractor': self.IE_NAME,
+                'extractor_key': self.ie_key(),
+            }
             if not self.get_param('allow_unplayable_formats') and traverse_obj(streaming_data, (..., 'licenseInfos')):
                 self.report_drm(video_id)
+                partial_info['error_type'] = 'drm_protected'
             pemr = get_first(
                 playability_statuses,
                 ('errorScreen', 'playerErrorMessageRenderer'), expected_type=dict) or {}
-            reason = self._get_text(pemr, 'reason') or get_first(playability_statuses, 'reason')
+            partial_info['interstitialViewModel'] = get_first(playability_statuses, ('errorScreen', 'playerInterstitialRenderer', 'content', 'interstitialViewModel', 'description', 'content'), expected_type=str)
+            reason = get_first(playability_statuses, ('errorScreen', 'playerInterstitialRenderer', 'content', 'interstitialViewModel', 'description', 'content'), expected_type=str)
+            reason = reason or self._get_text(pemr, 'reason') or get_first(playability_statuses, 'reason')
+            partial_info['reason'] = reason
             subreason = clean_html(self._get_text(pemr, 'subreason') or '')
             if subreason:
                 if subreason.startswith('The uploader has not made this video available in your country'):
@@ -4058,12 +4069,17 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
                     if not countries:
                         regions_allowed = search_meta('regionsAllowed')
                         countries = regions_allowed.split(',') if regions_allowed else None
-                    self.raise_geo_restricted(subreason, countries, metadata_available=True)
+                    partial_info['error_type'] = 'geo_restricted'
+                    partial_info['countries'] = countries
+                    self.raise_geo_restricted(subreason, countries, metadata_available=True, info_dict=partial_info)
                 reason += f'. {subreason}'
             if reason:
+                error_type = None
+                claimer = None
                 if 'sign in' in reason.lower():
                     reason = remove_end(reason, 'This helps protect our community. Learn more')
                     reason = f'{remove_end(reason.strip(), ".")}. {self._youtube_login_hint}'
+                    error_type = 'sign_in'
                 elif get_first(playability_statuses, ('errorScreen', 'playerCaptchaViewModel', {dict})):
                     reason += '. YouTube is requiring a captcha challenge before playback'
                 elif "This content isn't available, try again later" in reason:
@@ -4073,7 +4089,28 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
                         f'between video requests to avoid exceeding the rate limit. For more information, refer to  '
                         f'https://github.com/yt-dlp/yt-dlp/wiki/Extractors#this-content-isnt-available-try-again-later'
                     )
-                self.raise_no_formats(reason, expected=True)
+                    error_type = 'rate_limited'
+                    claimer = 'YouTube'
+                elif 'Join this channel' in reason:
+                    error_type = 'membership'
+                    claimer = 'membership'
+                elif 'This video is private' in reason:
+                    error_type = 'private'
+                    claimer = 'private'
+                elif 'claimed content by ' in reason:
+                    match = re.search(r'claimed content by (.+?)\.', reason)
+                    if match:
+                        claimer = match.group(1).strip()
+                        error_type = 'claimed'
+                # TODO
+                # elif 'has been removed by the uploader' in reason:
+                #     error_type = 'removed_by_uploader'
+                #     claimer = 'uploader'
+                if error_type:
+                    partial_info['error_type'] = error_type
+                if claimer:
+                    partial_info['claimer'] = claimer
+                self.raise_no_formats(reason, expected=True, info_dict=partial_info)
 
         keywords = get_first(video_details, 'keywords', expected_type=list) or []
         if not keywords and webpage:

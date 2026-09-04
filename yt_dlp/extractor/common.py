@@ -1254,21 +1254,21 @@ class InfoExtractor:
 
     def raise_geo_restricted(
             self, msg='This video is not available from your location due to geo restriction',
-            countries=None, metadata_available=False):
+            countries=None, metadata_available=False, info_dict=None):
         if metadata_available and (
                 self.get_param('ignore_no_formats_error') or self.get_param('wait_for_video')):
             self.report_warning(msg)
         else:
-            raise GeoRestrictedError(msg, countries=countries)
+            raise GeoRestrictedError(msg, countries=countries, info_dict=info_dict)
 
-    def raise_no_formats(self, msg, expected=False, video_id=None):
+    def raise_no_formats(self, msg, expected=False, video_id=None, info_dict=None):
         if expected and (
                 self.get_param('ignore_no_formats_error') or self.get_param('wait_for_video')):
             self.report_warning(msg, video_id)
         elif isinstance(msg, ExtractorError):
             raise msg
         else:
-            raise ExtractorError(msg, expected=expected, video_id=video_id)
+            raise ExtractorError(msg, expected=expected, video_id=video_id, info_dict=info_dict)
 
     # Methods for following #608
     @staticmethod

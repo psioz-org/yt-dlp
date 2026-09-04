@@ -979,7 +979,7 @@ class YoutubeDLError(Exception):
 class ExtractorError(YoutubeDLError):
     """Error during info extraction."""
 
-    def __init__(self, msg, tb=None, expected=False, cause=None, video_id=None, ie=None):
+    def __init__(self, msg, tb=None, expected=False, cause=None, video_id=None, ie=None, info_dict=None):
         """ tb, if given, is the original traceback (so that it can be printed out).
         If expected is set, this is a normal error message and most likely not a bug in yt-dlp.
         """
@@ -993,6 +993,7 @@ class ExtractorError(YoutubeDLError):
         self.cause = cause
         self.video_id = video_id
         self.ie = ie
+        self.info_dict = info_dict
         self.exc_info = sys.exc_info()  # preserve original exception
         if isinstance(self.exc_info[1], ExtractorError):
             self.exc_info = self.exc_info[1].exc_info
@@ -1039,9 +1040,9 @@ class GeoRestrictedError(ExtractorError):
     geographic location due to geographic restrictions imposed by a website.
     """
 
-    def __init__(self, msg, countries=None, **kwargs):
+    def __init__(self, msg, countries=None, info_dict=None, **kwargs):
         kwargs['expected'] = True
-        super().__init__(msg, **kwargs)
+        super().__init__(msg, info_dict=info_dict, **kwargs)
         self.countries = countries
 
 
