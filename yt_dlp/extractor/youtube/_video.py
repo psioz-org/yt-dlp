@@ -4091,6 +4091,10 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
                     )
                     error_type = 'rate_limited'
                     claimer = 'YouTube'
+                elif 'helps protect' in reason:
+                    # Original script above is invalid
+                    error_type = 'sign_in'
+                    claimer = 'sign_in'
                 elif 'Join this channel' in reason:
                     error_type = 'membership'
                     claimer = 'membership'
@@ -4102,10 +4106,9 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
                     if match:
                         claimer = match.group(1).strip()
                         error_type = 'claimed'
-                # TODO
-                # elif 'has been removed by the uploader' in reason:
-                #     error_type = 'removed_by_uploader'
-                #     claimer = 'uploader'
+                elif 'removed' in reason:
+                    error_type = 'removed'
+                    claimer = 'uploader'
                 if error_type:
                     partial_info['error_type'] = error_type
                 if claimer:
