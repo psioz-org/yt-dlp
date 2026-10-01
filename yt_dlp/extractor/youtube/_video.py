@@ -4109,6 +4109,9 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
                 elif 'removed' in reason:
                     error_type = 'removed'
                     claimer = 'uploader'
+                elif 'other websites' in reason:
+                    error_type = 'embedding_disabled'
+                    claimer = 'embedding_disabled'
                 if error_type:
                     partial_info['error_type'] = error_type
                 if claimer:
