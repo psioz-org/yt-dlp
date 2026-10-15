@@ -4091,10 +4091,16 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
                     )
                     error_type = 'rate_limited'
                     claimer = 'YouTube'
+                elif 'YouTube account associated with this video has been terminated' in reason:
+                    error_type = 'uploader_terminated'
+                    claimer = 'uploader_terminated'
                 elif 'helps protect' in reason:
                     # Original script above is invalid
                     error_type = 'sign_in'
                     claimer = 'sign_in'
+                elif 'age-restricted' in reason:
+                    error_type = 'age_restricted'
+                    claimer = 'age_restricted'
                 elif 'Join this channel' in reason:
                     error_type = 'membership'
                     claimer = 'membership'
